@@ -12,13 +12,33 @@ async function bootstrap() {
 
   app.use(helmet());
 
-  const origins = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
+  const envOrigins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
 
+  const defaultOrigins = [
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'https://getlink-frontent.vercel.app',
+  ];
+
+  const allowedOrigins = new Set([...defaultOrigins, ...envOrigins]);
+  const allowAllOrigins = allowedOrigins.has('*');
+
   app.enableCors({
-    origin: origins,
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        allowAllOrigins ||
+        allowedOrigins.has(origin) ||
+        /^https?:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
+      ) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
