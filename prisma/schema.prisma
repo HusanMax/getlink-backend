@@ -1,0 +1,85 @@
+// Resource Hub - Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// Categories are scoped per resource type: the same slug (e.g. "programming")
+/// can exist for several types. Uniqueness is therefore [type, slug].
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String
+  type        String
+  description String?
+  icon        String?
+  resources   Resource[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([type, slug])
+  @@index([type])
+}
+
+model Tag {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  resources ResourceTag[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+/// A single universal table for every resource kind.
+/// `type` is a free-form string ("website", "youtube", "telegram", "book",
+/// "movie", ...) so new resource kinds can be added without a migration.
+model Resource {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  url         String
+  image       String?
+  type        String
+  categoryId  String?
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  featured    Boolean       @default(false)
+  published   Boolean       @default(true)
+  /// Optional domain fields (used by books / movies).
+  author      String?
+  year        Int?
+  /// Free-form extra data, e.g. { "reason": "Why I recommend it" }.
+  metadata    Json?
+  tags        ResourceTag[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([type])
+  @@index([published])
+  @@index([featured])
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+model ResourceTag {
+  resourceId String
+  tagId      String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, tagId])
+  @@index([tagId])
+}
